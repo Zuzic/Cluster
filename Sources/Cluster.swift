@@ -98,23 +98,12 @@ open class ClusterManager {
         - mapView: The map view object to reload.
      */
     open func reload(_ mapView: MKMapView, visibleMapRect: MKMapRect) {
-        let operation = BlockOperation()
-        operation.addExecutionBlock { [weak self, weak mapView] in
-            guard let strongSelf = self, let mapView = mapView else { return }
-            let (toAdd, toRemove) = strongSelf.clusteredAnnotations(mapView, visibleMapRect: visibleMapRect, operation: operation)
-            if !operation.isCancelled {
-                DispatchQueue.main.async { [weak mapView] in
-                    guard let mapView = mapView else { return }
-                    mapView.removeAnnotations(toRemove)
-                    mapView.addAnnotations(toAdd)
-                }
-            }
-        }
-        queue.cancelAllOperations()
-        queue.addOperation(operation)
+        let (toAdd, toRemove) = clusteredAnnotations(mapView, visibleMapRect: visibleMapRect)
+        mapView.removeAnnotations(toRemove)
+        mapView.addAnnotations(toAdd)
     }
     
-    func clusteredAnnotations(_ mapView: MKMapView, visibleMapRect: MKMapRect, operation: Operation) -> (toAdd: [MKAnnotation], toRemove: [MKAnnotation]) {
+    func clusteredAnnotations(_ mapView: MKMapView, visibleMapRect: MKMapRect) -> (toAdd: [MKAnnotation], toRemove: [MKAnnotation]) {
         let zoomScale = ZoomScale(mapView.bounds.width) / visibleMapRect.size.width
         
         guard !zoomScale.isInfinite else { return (toAdd: [], toRemove: []) }
@@ -130,8 +119,8 @@ open class ClusterManager {
         
         var clusteredAnnotations = [MKAnnotation]()
         
-        for i in minX...maxX where !operation.isCancelled {
-            for j in minY...maxY where !operation.isCancelled {
+        for i in minX...maxX {
+            for j in minY...maxY {
                 let mapRect = MKMapRect(x: Double(i) / scaleFactor, y: Double(j) / scaleFactor, width: 1 / scaleFactor, height: 1 / scaleFactor)
                 
                 var totalLatitude: Double = 0
@@ -159,8 +148,6 @@ open class ClusterManager {
                 }
             }
         }
-        
-        if operation.isCancelled { return (toAdd: [], toRemove: []) }
         
         let before = NSMutableSet(array: mapView.annotations)
         before.remove(mapView.userLocation)
